@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import datetime
 
 
@@ -39,14 +40,10 @@ def preprocess():
     session_events = filtered_events.groupby("visitorid", group_keys=False).apply(
         session_flag
     )
-    max_sessions = session_events.groupby("visitorid")["session"].max()
-
-    # 각 `visitorid` 그룹에 대해, 최대 `session` 값을 가진 행을 삭제하기
-    session_events = session_events[
-        ~session_events.apply(
-            lambda x: x["session"] == max_sessions[x["visitorid"]], axis=1
-        )
-    ]
+    # 구매 event 가 있는 session만 대상으로 가져오기
+    session_events = session_events.groupby(["visitorid", "session"]).filter(
+        lambda x: x["event"].isin(["transaction"]).any()
+    )
 
     item_category = pd.concat(
         [
@@ -55,8 +52,15 @@ def preprocess():
         ]
     )
     item_category_dict = item_category.set_index("itemid")["value"].to_dict()
+
+    def item_category_mapping(x):
+        if x in item_category_dict:
+            return int(item_category_dict[x])
+        else:
+            return -1
+
     session_events["category"] = session_events["itemid"].apply(
-        lambda x: item_category_dict.get(x, -1)
+        lambda x: item_category_mapping(x)
     )
 
     session_category_events = session_events.merge(
@@ -79,4 +83,27 @@ def preprocess():
         ["visitorid", "session"]
     ).filter(lambda x: "view" in x["event"].values)
 
-    return session_category_events  # df
+    # 이력 많은 유저 필터링
+    worthy_visitors = (
+        session_category_events.groupby("visitorid")
+        .size()
+        .sort_values()[6000:]
+        .index.tolist()
+    )
+    visitors_filtered = session_category_events[
+        session_category_events["visitorid"].isin(worthy_visitors)
+    ]
+
+    final_df = visitors_filtered.groupby(["visitorid", "session"]).filter(
+        lambda x: len(x) >= 5
+    )
+
+    item_list = np.unique(final_df["itemid"].values)
+    item2idx = {item: idx for idx, item in enumerate(item_list)}
+
+    def item_id2idx(x):
+        return item2idx[x]
+
+    final_df["itemidx"] = final_df["itemid"].apply(lambda x: item_id2idx(x))
+
+    return final_df  # df
