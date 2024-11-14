@@ -1,9 +1,9 @@
-import numpy as np
 from data_preprocess import preprocess
 from data_loader import SessionDataset
 from session_based_recommender import SessionLSTM
+
+import torch
 from torch.utils.data import DataLoader
-import time
 
 
 if __name__ == "__main__":
@@ -20,8 +20,8 @@ if __name__ == "__main__":
     test_data_sample = df[df["visitorid"].isin(test_users)]
 
     n_items = df["itemidx"].nunique()
-    n_categorys = df["category"].nunique()
-    n_pcategorys = df["parentid"].nunique()
+    n_categorys = df["categoryidx"].nunique()
+    n_pcategorys = df["pcategoryidx"].nunique()
 
     train_dataset_sample = SessionDataset(train_data_sample, n_items)
     test_dataset_sample = SessionDataset(test_data_sample, n_items)
@@ -29,6 +29,14 @@ if __name__ == "__main__":
     test_loader_sample = DataLoader(test_dataset_sample, batch_size=250, shuffle=False)
 
     print("Session LSTM Training...")
-    auc = SessionLSTM(
-        n_items, n_categorys, n_pcategorys, train_loader_sample, test_loader_sample
+    num_epochs = 100
+    hidden_size = 128
+    model = SessionLSTM(
+        num_epochs,
+        n_items,
+        n_categorys,
+        n_pcategorys,
+        hidden_size,
     )
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    model.train_model(train_loader_sample, test_loader_sample, optimizer)

@@ -98,12 +98,22 @@ def preprocess():
         lambda x: len(x) >= 5
     )
 
-    item_list = np.unique(final_df["itemid"].values)
-    item2idx = {item: idx for idx, item in enumerate(item_list)}
+    item2idx = {
+        item: idx for idx, item in enumerate(np.unique(final_df["itemid"].values))
+    }
 
-    def item_id2idx(x):
-        return item2idx[x]
+    category2idx = {
+        category: idx
+        for idx, category in enumerate(np.unique(final_df["category"].values))
+    }
 
-    final_df["itemidx"] = final_df["itemid"].apply(lambda x: item_id2idx(x))
+    pcategory2idx = {
+        pcategory: idx
+        for idx, pcategory in enumerate(np.unique(final_df["parentid"].values))
+    }
+
+    final_df["itemidx"] = final_df["itemid"].apply(lambda x: item2idx[x])
+    final_df["categoryidx"] = final_df["category"].apply(lambda x: category2idx[x])
+    final_df["pcategoryidx"] = final_df["parentid"].apply(lambda x: pcategory2idx[x])
 
     return final_df  # df
