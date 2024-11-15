@@ -56,7 +56,24 @@ class SessionLSTM(nn.Module):
                 opt.zero_grad()
                 outputs = self(inputs)
 
-                loss = criterion(outputs, target)
+                # Hard Positive Loss
+                weights = torch.where((target == 1) & (outputs < 0.5), 10.0, 1.0)
+                loss = (weights * criterion(outputs, target)).mean()
+
+                # Hard Negative Loss
+                # weights = torch.where(target == 0 & outputs > 0.5, 10.0, 1.0)
+                # loss = (weights * criterion(outputs, target)).mean()
+
+                # # Negative weighted Loss
+                # weights = torch.where(target == 1, 1.0, 10.0)
+                # loss = (weights * criterion(outputs, target)).mean()
+
+                # Positive weighted Loss
+                # weights = torch.where(target == 1, 10.0, 1.0)
+                # loss = (weights * criterion(outputs, target)).mean()
+
+                # 기본 Loss
+                # loss = criterion(outputs, target)
                 total_loss += loss.item()
 
                 loss.backward()
@@ -71,6 +88,7 @@ class SessionLSTM(nn.Module):
             with torch.no_grad():
                 top_k = 5
                 recall_scores = []
+                precision_scores = []
                 for inputs, target in test_data:
                     outputs = self(inputs)
 
@@ -85,5 +103,12 @@ class SessionLSTM(nn.Module):
                         recall = len(target_items & predicted_items) / len(target_items)
                         recall_scores.append(recall)
 
+                        precision = len(target_items & predicted_items) / len(
+                            predicted_items
+                        )
+                        precision_scores.append(precision)
+
                 mean_recall_at_5 = sum(recall_scores) / len(recall_scores)
                 print(f"Test Recall@{top_k}: {mean_recall_at_5:.4f}")
+                mean_precision_at_5 = sum(precision_scores) / len(precision_scores)
+                print(f"Test Precision@{top_k}: {mean_precision_at_5:.4f}")
