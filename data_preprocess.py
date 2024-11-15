@@ -12,10 +12,14 @@ def timestamp2datetime(x):
 def session_flag(group):
     flag = 0
     flags = []
+    transaction_event = False
     for event in group["event"]:
-        flags.append(flag)
         if event == "transaction":
+            transaction_event = True
+        elif transaction_event & (event != "transaction"):
+            transaction_event = False
             flag += 1
+        flags.append(flag)
     group["session"] = flags
     return group
 
