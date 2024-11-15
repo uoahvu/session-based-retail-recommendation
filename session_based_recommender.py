@@ -64,20 +64,26 @@ class SessionLSTM(nn.Module):
 
                 loss_mean.append(loss.detach().cpu().numpy())
 
-                # print(
-                #     f"Epoch [{epoch + 1}/{self.num_epochs}], Step [{i + 1}/{len(train_data)}], {loss}"
-                # )
             print(
                 f"Epoch [{epoch + 1}/{self.num_epochs}], Train Loss: {np.mean(loss_mean)}"
             )
 
             with torch.no_grad():
-                correct = 0
-                total = 0
+                top_k = 5
+                recall_scores = []
                 for inputs, target in test_data:
                     outputs = self(inputs)
-                    _, predicted = torch.max(outputs.data, 1)
-                    total += target.size(0)
-                    correct += (predicted == target).sum().item()
 
-                print(f"Test ACC: {correct / total}")
+                    # Recall@k
+                    for seq_idx, seq_row in enumerate(target):
+                        target_indices = torch.nonzero(seq_row == 1).squeeze(-1)
+                        target_items = set(target_indices.tolist())
+
+                        _, top_k_indices = torch.topk(outputs[seq_idx], top_k)
+                        predicted_items = set(top_k_indices.tolist())
+
+                        recall = len(target_items & predicted_items) / len(target_items)
+                        recall_scores.append(recall)
+
+                mean_recall_at_5 = sum(recall_scores) / len(recall_scores)
+                print(f"Test Recall@{top_k}: {mean_recall_at_5:.4f}")

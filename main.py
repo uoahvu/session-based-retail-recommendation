@@ -28,7 +28,7 @@ if __name__ == "__main__":
     train_loader_sample = DataLoader(train_dataset_sample, batch_size=250, shuffle=True)
     test_loader_sample = DataLoader(test_dataset_sample, batch_size=250, shuffle=False)
 
-    print("Session LSTM Training...")
+    print("Session LSTM Training ...")
     num_epochs = 100
     hidden_size = 128
     model = SessionLSTM(
