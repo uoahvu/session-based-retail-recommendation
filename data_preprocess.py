@@ -120,4 +120,12 @@ def preprocess():
     final_df["categoryidx"] = final_df["category"].apply(lambda x: category2idx[x])
     final_df["pcategoryidx"] = final_df["parentid"].apply(lambda x: pcategory2idx[x])
 
-    return final_df  # df
+    candidate_dict = (
+        final_df[["itemidx", "pcategoryidx"]]
+        .drop_duplicates()
+        .groupby("pcategoryidx")["itemidx"]
+        .apply(list)
+        .to_dict()
+    )
+
+    return final_df, candidate_dict  # df

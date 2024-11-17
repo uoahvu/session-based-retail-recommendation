@@ -30,7 +30,7 @@ class SessionLSTM(nn.Module):
         self.out_layer = nn.Linear(hidden_size, num_items)
         self.sigmoid = nn.Sigmoid()
 
-    def forward(self, input):
+    def forward(self, input, mask):
         embedded_item = self.embedding_item(input[:, :, 0].long())
         embedded_category = self.embedding_category(input[:, :, 1].long())
         embedding_pcategory = self.embedding_parent_category(input[:, :, 2].long())
@@ -42,38 +42,60 @@ class SessionLSTM(nn.Module):
             -1,
         )
         output, _ = self.lstm_layer(embedded)
-        output = self.out_layer(output[:, -1, :])
+
+        last_true_indices = torch.sum(mask, 1) - 1
+        batch_indices = torch.arange(output.size(0))
+        output = output[batch_indices, last_true_indices]
+
+        output = self.out_layer(output)
         output = self.sigmoid(output)
         return output
 
-    def train_model(self, train_data, test_data, opt):
-        criterion = nn.CrossEntropyLoss()
+    def train_model(self, train_data, test_data, opt, candidate_dict):
+        criterion_crossentropy = nn.CrossEntropyLoss()
+        criterion_ranking = nn.MarginRankingLoss(margin=0.3)
 
         total_loss = 0
         for epoch in range(self.num_epochs):
             loss_mean = []
-            for i, (inputs, target) in enumerate(train_data):
+            for i, (inputs, target, mask) in enumerate(train_data):
+                ranking_loss = 0
                 opt.zero_grad()
-                outputs = self(inputs)
+                outputs = self(inputs, mask)
+
+                # MarginRankingLoss
+                # y = 1
+                # for seq_idx, seq_row in enumerate(target):
+                #     positive_x = outputs[seq_idx][seq_row == 1.0]
+                #     negetive_seq = outputs[seq_idx][seq_row == 0.0]
+                #     negetive_mean = torch.mean(negetive_seq)
+                #     negetive_x = negetive_mean.expand(positive_x.size(0))
+                #     target_y = torch.ones((negetive_x.size(0),))
+
+                #     ranking_loss += criterion_ranking(positive_x, negetive_x, target_y)
 
                 # Hard Positive Loss
-                weights = torch.where((target == 1) & (outputs < 0.5), 10.0, 1.0)
-                loss = (weights * criterion(outputs, target)).mean()
+                # weights = torch.where((target == 1) & (outputs < 0.5), 10.0, 1.0)
+                # loss = (weights * criterion(outputs, target)).mean()
 
                 # Hard Negative Loss
                 # weights = torch.where(target == 0 & outputs > 0.5, 10.0, 1.0)
                 # loss = (weights * criterion(outputs, target)).mean()
 
-                # # Negative weighted Loss
+                # Negative weighted Loss
                 # weights = torch.where(target == 1, 1.0, 10.0)
-                # loss = (weights * criterion(outputs, target)).mean()
+                # weighted_loss = (weights * criterion(outputs, target)).mean()
 
                 # Positive weighted Loss
-                # weights = torch.where(target == 1, 10.0, 1.0)
-                # loss = (weights * criterion(outputs, target)).mean()
+                weights = torch.where(target == 1, 10.0, 1.0)
+                weighted_loss = torch.mean(
+                    (weights * criterion_crossentropy(outputs, target))
+                )
 
                 # 기본 Loss
                 # loss = criterion(outputs, target)
+
+                loss = weighted_loss
                 total_loss += loss.item()
 
                 loss.backward()
@@ -89,20 +111,43 @@ class SessionLSTM(nn.Module):
                 top_k = 5
                 recall_scores = []
                 precision_scores = []
-                for inputs, target in test_data:
-                    outputs = self(inputs)
+                for inputs, target, mask in test_data:
+                    outputs = self(inputs, mask)
 
-                    # Recall@k
                     for seq_idx, seq_row in enumerate(target):
+                        # Candidate Generation
+                        candidate_pcategory = (
+                            torch.unique(
+                                inputs[seq_idx][: torch.sum(mask[seq_idx]), -1]
+                            )
+                            .to(torch.int64)
+                            .tolist()
+                        )
+                        candidate_items = torch.unique(
+                            torch.tensor(
+                                [
+                                    value
+                                    for key in candidate_pcategory
+                                    if key in candidate_dict
+                                    for value in candidate_dict[key]
+                                ]
+                            )
+                        )
+                        _, top_k_relative_indices = torch.topk(
+                            outputs[seq_idx][candidate_items], top_k
+                        )
+                        top_k_indices = candidate_items[top_k_relative_indices]
+
+                        predicted_items = set(top_k_indices.tolist())
+
                         target_indices = torch.nonzero(seq_row == 1).squeeze(-1)
                         target_items = set(target_indices.tolist())
 
-                        _, top_k_indices = torch.topk(outputs[seq_idx], top_k)
-                        predicted_items = set(top_k_indices.tolist())
-
+                        # Recall@k
                         recall = len(target_items & predicted_items) / len(target_items)
                         recall_scores.append(recall)
 
+                        # precision@k
                         precision = len(target_items & predicted_items) / len(
                             predicted_items
                         )

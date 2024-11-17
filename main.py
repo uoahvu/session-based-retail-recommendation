@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 
 if __name__ == "__main__":
-    df = preprocess()
+    df, candidate_dict = preprocess()
 
     # 유저 기준 Train/Test Split
     print("Train/Test Spliting ...")
@@ -39,4 +39,6 @@ if __name__ == "__main__":
         hidden_size,
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-    model.train_model(train_loader_sample, test_loader_sample, optimizer)
+    model.train_model(
+        train_loader_sample, test_loader_sample, optimizer, candidate_dict
+    )

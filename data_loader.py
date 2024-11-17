@@ -30,12 +30,19 @@ class SessionDataset(Dataset):
         )
 
         X_new = torch.zeros(self.seq_len, len(X[0]))
+        mask = torch.zeros(self.seq_len, dtype=torch.bool)
 
         if len(X) > self.seq_len:
             X_new[:, :] = torch.tensor(X[: self.seq_len])
+            mask[:] = torch.ones(self.seq_len, dtype=torch.bool)
         else:
             X_new[: len(X), :] = torch.tensor(X)
+            mask[: len(X)] = torch.ones(len(X), dtype=torch.bool)
 
-        return X_new, torch.zeros(self.num_items, dtype=torch.float32).scatter_(
-            0, torch.tensor(y), torch.ones(len(y), dtype=torch.float32)
+        return (
+            X_new,
+            torch.zeros(self.num_items, dtype=torch.float32).scatter_(
+                0, torch.tensor(y), torch.ones(len(y), dtype=torch.float32)
+            ),
+            mask,
         )
