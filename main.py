@@ -1,4 +1,4 @@
-from data_preprocess import preprocess
+from data_preprocess import preprocess, data_augmentation
 from data_loader import SessionDataset
 from session_based_recommender import SessionLSTM
 
@@ -17,6 +17,8 @@ if __name__ == "__main__":
     test_users = visitor_list[int(len(visitor_list) * train_ratio) :]
 
     train_data_sample = df[df["visitorid"].isin(train_users)]
+    # print("Train Data Augmentation ...")
+    # train_data_sample = data_augmentation(train_data_sample, 2)
     test_data_sample = df[df["visitorid"].isin(test_users)]
 
     n_items = df["itemidx"].nunique()

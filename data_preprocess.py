@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import datetime
+from tqdm import tqdm
 
 
 def timestamp2datetime(x):
@@ -129,3 +130,31 @@ def preprocess():
     )
 
     return final_df, candidate_dict  # df
+
+
+def data_augmentation(df, num_multiple):
+    visitor_list = df["visitorid"].unique()
+    max_session = df["session"].max()
+
+    augmented_data = []
+    timestamp_idx = df.columns.get_loc("timestamp")
+    session_idx = df.columns.get_loc("session")
+
+    for visitor in tqdm(visitor_list):
+        visitor_df = df[df["visitorid"] == visitor]
+        visitor_session = visitor_df["session"].unique()
+        for visitor_ses in visitor_session:
+            session_df = (
+                visitor_df[visitor_df["session"] == visitor_ses].copy().to_numpy()
+            )
+
+            for times in range(num_multiple):
+                max_session += 1
+                session_df[:, timestamp_idx] = np.random.permutation(
+                    session_df[:, timestamp_idx]
+                )
+                session_df[:, session_idx] = max_session
+                augmented_data.extend(session_df)
+
+    augmented_df = pd.DataFrame(augmented_data, columns=df.columns)
+    return pd.concat([df, augmented_df], ignore_index=True)

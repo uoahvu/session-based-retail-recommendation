@@ -87,7 +87,7 @@ class SessionLSTM(nn.Module):
                 # weighted_loss = (weights * criterion(outputs, target)).mean()
 
                 # Positive weighted Loss
-                weights = torch.where(target == 1, 10.0, 1.0)
+                weights = torch.where(target == 1, 10.0, 0.0)
                 weighted_loss = torch.mean(
                     (weights * criterion_crossentropy(outputs, target))
                 )
@@ -95,7 +95,7 @@ class SessionLSTM(nn.Module):
                 # 기본 Loss
                 # loss = criterion(outputs, target)
 
-                loss = weighted_loss
+                loss = ranking_loss + weighted_loss
                 total_loss += loss.item()
 
                 loss.backward()
