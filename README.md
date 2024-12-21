@@ -5,7 +5,7 @@ Recommendation system that provides products that users are likely to purchase w
 
 ### How to train/test
 
-```python
+```
 python main.py
 ```
 
